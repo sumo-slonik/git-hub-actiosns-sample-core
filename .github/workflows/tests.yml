@@ -1,0 +1,56 @@
+#nazwyamy nasz work flow będzie to nazwa wyświetlana na github
+name: Tests
+
+#określamy event który trigeruje wykonanie work flow
+#w tym przypadku będzie się on uruchamiał  dla każdego pusha na branch main
+on:
+  push:
+    branches:
+      - main
+#określamy joby wykonywane dla tanego workflow
+jobs:
+#  nazwa pierwszego joba
+  frontend:
+#    okewślamy maszynę na której ma być uruchamiany dany job
+    runs-on: ubuntu-latest
+    steps:
+#      github actions umożliwiają nam między innymi dostęp do plików z repozytorium na wybranej maszynie
+# name określa nazwę stepa, a uses pozwala nam wybrać akcję jest to w rzeczywistości link do repozytorium z daną akcją : https://github.com/actions/checkout
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+#github actions przyśpieszają konfiguracje podstawowych kroków w tym przypadku instalację node
+# po polu with: podajemy argumenty danej akcji
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+# run pozwala nam wpisywać polecenia które wykonają się w konsoli
+# workingdirectory określa lokalizację w której wykonujemy dane polecenie
+      - name: Install dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Run tests
+        run: npm run test
+        working-directory: frontend
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@417ae3ccd767c252f5661f1ace9f835f9654f2b5
+
+      - name: Run tests
+        run: gradle :test
+        working-directory: backend
