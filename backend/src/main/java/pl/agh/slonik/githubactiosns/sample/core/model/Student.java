@@ -12,7 +12,5 @@ import lombok.ToString;
 public class Student {
     private String name;
     private String Surname;
-    //  remove exclude to fix tests
-    @ToString.Exclude
     private String id;
 }
