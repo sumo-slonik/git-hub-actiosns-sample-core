@@ -17,14 +17,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Katalog z projektem Gradle (tam, gdzie leżą build.gradle i gradlew) - jedyna rzecz do ustawienia.
+  # Jeśli projekt jest bezpośrednio w głównym katalogu repozytorium, wpisz: .
+  PROJECT_DIR: oolab
+
 jobs:
   build:
     runs-on: ubuntu-latest
     defaults:
       run:
-        # Katalog z projektem Gradle (tam, gdzie leżą build.gradle i gradlew).
-        # Jeśli projekt jest w głównym katalogu repozytorium, wpisz tu: .
-        working-directory: oolab
+        working-directory: ${{ env.PROJECT_DIR }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -51,4 +54,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-report
-          path: oolab/build/reports/tests/test
+          path: ${{ env.PROJECT_DIR }}/build/reports/tests/test
