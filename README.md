@@ -182,9 +182,9 @@ z laboratorium 2 (Java 25, Gradle 9.8, JUnit 5).
 1. **Umieść workflow w swoim repozytorium** jako `.github/workflows/ci.yml`. Katalog `.github` musi leżeć
    w **głównym katalogu repozytorium** (tam, gdzie `.git`), a nie w katalogu projektu `oolab`.
 
-2. **Ustaw katalog projektu** w `working-directory`. Workflow zakłada, że projekt Gradle leży w katalogu `oolab/`
-   w repozytorium (obok np. `README.md`). Jeśli `build.gradle` i `gradlew` są bezpośrednio w głównym katalogu
-   repozytorium, ustaw `working-directory: .` i zmień ścieżkę raportu na `build/reports/tests/test`.
+2. **Ustaw katalog projektu** w zmiennej `PROJECT_DIR` na początku pliku. Domyślnie workflow zakłada, że projekt Gradle
+   leży w katalogu `oolab/` w repozytorium (obok np. `README.md`). Jeśli `build.gradle` i `gradlew` są bezpośrednio
+   w głównym katalogu repozytorium, ustaw `PROJECT_DIR: .`.
 
 3. **Wrzuć do repozytorium Gradle Wrapper.** CI buduje projekt poleceniem `./gradlew`, więc w repozytorium muszą być:
    `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, `gradle/wrapper/gradle-wrapper.properties`
