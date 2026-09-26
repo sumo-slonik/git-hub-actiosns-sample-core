@@ -88,21 +88,9 @@ jobs:
       - run: ./gradlew build
 ```
 
-### Co zmieniło się względem starszych wersji tego tutoriala
-
-| Było | Jest | Dlaczego |
-|---|---|---|
-| `actions/checkout@v2`, `actions/setup-node@v2`, `actions/setup-java@v3` | `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-java@v6` | stare wersje działały na wycofanym Node.js 12/16 i GitHub ich już nie wspiera |
-| `distribution: 'adopt'` | `distribution: temurin` | AdoptOpenJDK przeniósł się do Eclipse Adoptium (Temurin) |
-| `node-version: '14'` | `node-version: '22'` | Node 14 nie jest już wspierany |
-| `npm install` | `npm ci` + `cache: npm` | powtarzalna instalacja z `package-lock.json` i szybsze buildy |
-| `gradle/actions/setup-gradle@<hash>` + `gradle :test` | `gradle/actions/setup-gradle@v6` + `./gradlew build` | używamy wersji Gradle z repozytorium (Gradle Wrapper); akcja sama weryfikuje `gradle-wrapper.jar` i cache'uje zależności |
-| tylko `push` na `main` | `push`, `pull_request`, `workflow_dispatch` | testy uruchamiają się przy PR, zanim kod trafi do `main` |
-| brak | `permissions: contents: read`, `concurrency` | minimalne uprawnienia tokenu i anulowanie nieaktualnych uruchomień |
-
 > **Uwaga na `gradlew`:** plik `gradlew` musi mieć w repozytorium uprawnienia do wykonywania, inaczej na runnerze
 > (Linux) dostaniemy `Permission denied`. Na Windowsie git tego nie ustawia automatycznie - wykonaj raz:
-> `git update-index --chmod=+x gradlew`, a potem commit. W tym repozytorium zostało to już poprawione dla `backend/gradlew`.
+> `git update-index --chmod=+x gradlew`, a potem commit. W tym repozytorium `backend/gradlew` ma już ustawione to uprawnienie.
 
 ### Wyniki workflow
 
@@ -129,8 +117,9 @@ Klikamy czerwony krok i po rozwinięciu widzimy:
 Gdy testy nie przejdą, workflow dodatkowo zapisuje raport HTML z testów jako **artefakt** (`backend-test-report`) -
 można go pobrać na dole strony z podsumowaniem uruchomienia.
 
-Błąd możemy szybko naprawić: w klasie `pl/agh/slonik/githubactiosns/sample/core/model/Student.java` usuwamy
-`@ToString.Exclude` ze wszystkich pól.
+Test `StudentTest.toStringTest` oczekuje, że `toString()` zawiera wszystkie pola, a pole `id` jest z niego wykluczone.
+Naprawiamy to w klasie `backend/src/main/java/pl/agh/slonik/githubactiosns/sample/core/model/Student.java`,
+usuwając adnotację `@ToString.Exclude` nad polem `id`, a następnie robimy commit i push.
 
 Po tej zmianie wszystkie testy powinny być zielone ✅
 
@@ -185,7 +174,8 @@ Na laboratoriach z PO ([obiektowe-lab](https://github.com/Soamid/obiektowe-lab))
 pozwala automatycznie budować projekt i uruchamiać testy przy każdym pushu oraz w każdym Pull Requeście
 z rozwiązaniem laboratorium.
 
-Gotowy plik workflow: [`resources/oolab-ci.yml`](resources/oolab-ci.yml).
+Gotowy plik workflow: [`resources/oolab-ci.yml`](resources/oolab-ci.yml). Konfiguracja jest sprawdzona na projekcie
+z laboratorium 2 (Java 25, Gradle 9.8, JUnit 5).
 
 ### Co trzeba skonfigurować w projekcie
 
@@ -217,6 +207,10 @@ Gotowy plik workflow: [`resources/oolab-ci.yml`](resources/oolab-ci.yml).
    ```
    W workflow `java-version` w `actions/setup-java` powinno mieć tę samą wartość (`'25'`).
 
+   Java 25 wymaga **Gradle w wersji 9.1 lub nowszej**. Wersję sprawdzisz w `gradle/wrapper/gradle-wrapper.properties`
+   (linia `distributionUrl=...gradle-9.x-bin.zip`). Jeśli jest starsza, zaktualizuj wrapper poleceniem
+   `./gradlew wrapper --gradle-version latest` i zacommituj zmienione pliki wrappera.
+
 6. **Testy muszą być uruchamiane przez Gradle.** Projekt wygenerowany przez IntelliJ ma już odpowiednią konfigurację -
    upewnij się, że w `build.gradle` są (wersja `junit-bom` może być inna):
    ```groovy
@@ -230,6 +224,8 @@ Gotowy plik workflow: [`resources/oolab-ci.yml`](resources/oolab-ci.yml).
        useJUnitPlatform()
    }
    ```
+   Linia `testRuntimeOnly 'org.junit.platform:junit-platform-launcher'` jest w Gradle 9 **obowiązkowa** - bez niej
+   uruchamianie testów kończy się błędem `Failed to load JUnit Platform`.
    Testy trzymamy w `src/test/java` - tylko stamtąd Gradle je uruchomi.
 
 7. **Sprawdź lokalnie, zanim wypchniesz:** `./gradlew build` (lub `gradlew.bat build` na Windowsie) w katalogu projektu.
