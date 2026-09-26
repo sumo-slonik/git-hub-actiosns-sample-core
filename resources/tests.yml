@@ -1,56 +1,94 @@
-#nazwyamy nasz work flow będzie to nazwa wyświetlana na github
+# Nazwa workflow - wyświetlana w zakładce "Actions" na GitHubie.
 name: Tests
 
-#określamy event który trigeruje wykonanie work flow
-#w tym przypadku będzie się on uruchamiał  dla każdego pusha na branch main
+# Eventy, które uruchamiają (trigerują) workflow.
 on:
+  # każdy push na główny branch
   push:
-    branches:
-      - main
-#określamy joby wykonywane dla tanego workflow
+    branches: [main]
+  # każdy pull request (utworzenie, nowy commit w PR itd.) - dzięki temu testy
+  # odpalają się ZANIM zmiana trafi do main; można to potem wymusić regułą w "Rulesets"
+  pull_request:
+  # przycisk "Run workflow" w zakładce Actions - ręczne uruchomienie
+  workflow_dispatch:
+
+# Minimalne uprawnienia tokenu GITHUB_TOKEN - workflow tylko czyta kod.
+permissions:
+  contents: read
+
+# Gdy wypchniemy kolejny commit na ten sam branch/PR, poprzednie (już nieaktualne)
+# uruchomienie zostanie anulowane - oszczędzamy minuty.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Joby wykonywane w ramach workflow - domyślnie uruchamiają się równolegle.
 jobs:
-#  nazwa pierwszego joba
+  # nazwa (id) pierwszego joba
   frontend:
-#    okewślamy maszynę na której ma być uruchamiany dany job
+    # maszyna (runner), na której uruchamiany jest job
     runs-on: ubuntu-latest
+    # katalog, w którym wykonywane są wszystkie polecenia "run" w tym jobie
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-#      github actions umożliwiają nam między innymi dostęp do plików z repozytorium na wybranej maszynie
-# name określa nazwę stepa, a uses pozwala nam wybrać akcję jest to w rzeczywistości link do repozytorium z daną akcją : https://github.com/actions/checkout
+      # "uses" wskazuje gotową akcję - w rzeczywistości jest to repozytorium na GitHubie:
+      # https://github.com/actions/checkout (@v7 to wersja akcji).
+      # checkout pobiera kod naszego repozytorium na maszynę runnera.
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
-#github actions przyśpieszają konfiguracje podstawowych kroków w tym przypadku instalację node
-# po polu with: podajemy argumenty danej akcji
+      # Gotowe akcje przyspieszają konfigurację podstawowych kroków - tu instalacja Node.js.
+      # Po "with:" podajemy argumenty akcji. "cache: npm" zapamiętuje pobrane paczki między uruchomieniami.
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v7
         with:
-          node-version: '14'
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-# run pozwala nam wpisywać polecenia które wykonają się w konsoli
-# workingdirectory określa lokalizację w której wykonujemy dane polecenie
+      # "run" wykonuje polecenia w konsoli.
+      # npm ci instaluje dokładnie te wersje, które są w package-lock.json (powtarzalny build).
       - name: Install dependencies
-        run: npm install
-        working-directory: frontend
+        run: npm ci
 
+      # Na GitHub Actions zmienna CI=true jest ustawiona automatycznie,
+      # więc testy uruchomią się raz (bez trybu "watch").
       - name: Run tests
-        run: npm run test
-        working-directory: frontend
+        run: npm test
 
   backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
+      # Instalacja JDK. "temurin" to darmowa dystrybucja OpenJDK od Eclipse Adoptium.
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v6
         with:
+          distribution: temurin
           java-version: '17'
-          distribution: 'adopt'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@417ae3ccd767c252f5661f1ace9f835f9654f2b5
+      # Oficjalna akcja Gradle: cache zależności i automatyczna weryfikacja,
+      # czy gradle-wrapper.jar w repozytorium nie został podmieniony.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
 
-      - name: Run tests
-        run: gradle :test
-        working-directory: backend
+      # Używamy Gradle Wrappera (./gradlew) z repozytorium - dzięki temu CI buduje
+      # projekt dokładnie tą samą wersją Gradle co my lokalnie.
+      - name: Build and run tests
+        run: ./gradlew build
+
+      # Gdy testy nie przejdą, zapisujemy raport HTML z testów jako artefakt,
+      # który można pobrać z podsumowania uruchomienia workflow.
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-report
+          path: backend/build/reports/tests/test
