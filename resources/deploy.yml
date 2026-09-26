@@ -1,32 +1,69 @@
-name: deploy
+# OPCJONALNE: deployment frontendu (React) na GitHub Pages.
+# Nie jest potrzebny do CI - wystarczy tests.yml.
+name: Deploy frontend to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+# Uprawnienia potrzebne do publikacji na GitHub Pages.
+# Nie potrzebujemy już własnego Personal Access Tokena - wystarczy wbudowany GITHUB_TOKEN.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Tylko jeden deployment naraz; nie przerywamy deploymentu, który już trwa.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v7
         with:
-          node-version: '14'
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Odczytuje konfigurację Pages, m.in. ścieżkę, pod którą strona będzie dostępna
+      # (np. /git-hub-actiosns-sample-core) - nie trzeba jej wpisywać ręcznie do package.json.
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v6
 
       - name: Install dependencies
-        run: npm install
-        working-directory: frontend
+        run: npm ci
 
       - name: Build
         run: npm run build
-        working-directory: frontend
+        env:
+          PUBLIC_URL: ${{ steps.pages.outputs.base_path }}
 
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
+      # Pakuje zbudowaną stronę jako artefakt dla GitHub Pages.
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
         with:
-#          tutaj kożystamy z zapisanego do sekretów tokenu
-          github_token: ${{ secrets.TOKEN }}
-          publish_dir: frontend/build
+          path: frontend/build
+
+  deploy:
+    # job "deploy" czeka, aż "build" zakończy się sukcesem
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
